@@ -1,0 +1,5 @@
+.local/
+.cache/
+.env/
+.DS_Store
+*~
