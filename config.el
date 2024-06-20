@@ -90,7 +90,7 @@
 ;; Step 1: Configure faces for Org headlines and lists
 ;; My first step was to make org-mode much more readable by using different fonts for headings, hiding some of the markup, and improving list bullets. I took these settings originally from Howard Abrams' excellent Org as a Word Processor article, although I have tweaked them a bit.
 ;; First, we ask org-mode to hide the emphasis markup (e.g. /.../ for italics, *...* for bold, etc.):
-  (setq org-hide-emphasis-markers t)
+(setq org-hide-emphasis-markers t)
 
 ;; Then, we set up a font-lock substitution for list markers (I always use “-” for lists, but you can change this if you want) by replacing them with a centered-dot character:
 (font-lock-add-keywords 'org-mode
