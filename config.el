@@ -7,12 +7,86 @@
 (setq user-full-name "Andres Umana"
       user-mail-address "aumana@gmail.com")
 
+;; configuration for agent-sell https://github.com/xenodium/agent-shell
+(require 'acp)
+(require 'agent-shell)
+(setq agent-shell-google-authentication
+      (agent-shell-google-make-authentication :login t))
+(setq agent-shell-openai-authentication
+      (agent-shell-openai-make-authentication :login t))
+(setq agent-shell-qwen-authentication
+      (agent-shell-qwen-make-authentication :login t))
+
+;;; --- TTY SAFETY GUARDS -----------------------------------------------------
+(defvar zz/is-tty (not (display-graphic-p)))
+
+(when zz/is-tty
+  ;; Avoid rendering issues and slowdowns
+  (menu-bar-mode -1)
+  (tool-bar-mode -1)
+  (scroll-bar-mode -1)
+
+  ;; Modeline: avoid icon fonts in terminal
+  (with-eval-after-load 'doom-modeline
+    (setq doom-modeline-icon nil
+          doom-modeline-mu4e nil
+          doom-modeline-buffer-encoding nil))
+
+  ;; All-the-icons: don’t try to use icon fonts in TTY (harmless if not loaded)
+  (setq all-the-icons-scale-factor 1.0)
+  (with-eval-after-load 'all-the-icons
+    (setq all-the-icons-default-adjust 0))
+
+  ;; Disable childframe-based popups in TTY (if any package tries to use them)
+  (setq posframe-mouse-banish nil)
+  (when (featurep 'posframe)
+    (setq posframe-arghandler #'ignore)))
+
+;;; --- COMPLETION STACK IN TTY ----------------------------------------------
+(when zz/is-tty
+  ;; Ivy/Counsel display tweaks that play nicely in terminal
+  (with-eval-after-load 'ivy
+    (setq ivy-use-virtual-buffers t
+          ivy-count-format "(%d/%d) "
+          ivy-initial-inputs-alist nil
+          ivy-height 15))
+  (with-eval-after-load 'counsel
+    (setq counsel-rg-base-command
+          "rg -S --no-heading --line-number --color never %s")))
+
+;;--- macOS ENV IMPORT ------------------------------------------------------
+;; (when (eq system-type 'darwin)
+;;   ;; Install the package via Doom: add (exec +childframe?) to :tools, or:
+;;   (use-package! exec-path-from-shell
+;;     :init
+;;     (setq exec-path-from-shell-variables '("PATH" "MANPATH" "LANG" "LC_ALL" "GOPATH" "PYENV_ROOT" "GPG_TTY"))
+;;     :config
+;;     ;; Initialize for both GUI and TTY so shell PATH is correct everywhere
+;;     (exec-path-from-shell-initialize)))
+
+;;; --- PER-FRAME SAFETY (daemon/clients) ------------------------------------
+(add-hook 'after-make-frame-functions
+          (defun zz/per-frame-tty-safety (frame)
+            (with-selected-frame frame
+              (unless (display-graphic-p frame)
+                (setq doom-modeline-icon nil)))))  ;; add more TTY-only tweaks here if needed
+
 ;; Change the Mac modifiers to my liking. I also disable passing Control characters to the system, to avoid that C-M-space launches the Character viewer instead of running mark-sexp.
-(cond (IS-MAC
+(cond ((featurep :system 'macos)
        (setq mac-command-modifier       'meta
              mac-option-modifier        'alt
-             mac-right-option-modifier  'alt
+             mac-right-option-modifier  nil
              mac-pass-control-to-system t)))
+
+(when (and (eq system-type 'darwin) (display-graphic-p))
+  ;; Cocoa/NS Emacs (Emacs.app)
+  (when (boundp 'ns-alternate-modifier)        (setq ns-alternate-modifier 'meta))
+  (when (boundp 'ns-right-alternate-modifier)  (setq ns-right-alternate-modifier 'none))
+
+  ;; Yamamoto emacs-mac port (if you ever switch builds)
+  (when (boundp 'mac-option-modifier)          (setq mac-option-modifier 'meta))
+  (when (boundp 'mac-right-option-modifier)    (setq mac-right-option-modifier 'none))
+)
 
 ;; When at the beginning of the line, make Ctrl-K remove the whole line, instead of just emptying it.
 (setq kill-whole-line t)
@@ -27,12 +101,6 @@
 ;; Doom configures auth-sources by default to include the Keychain on macOS, but it puts it at the beginning of the list. This causes creation of auth items to fail because the macOS Keychain sources do not support creation yet. I reverse it to leave ~/.authinfo.gpg at the beginning.
 (after! auth-source
   (setq auth-sources (nreverse auth-sources)))
-
-;; Set base and variable-pitch fonts. I currently like Fira Code and Alegreya (another favorite and my previous choice: ET Book).
-(setq doom-font (font-spec :family "Fira Code" :size 10)
-      ;;doom-variable-pitch-font (font-spec :family "ETBembo" :size 18)
-      doom-variable-pitch-font (font-spec :family "Alegreya" :size 10))
-
 
 ;; Some functionality uses this to identify you, e.g. GPG configuration, email
 ;; clients, file templates and snippets. It is optional.
@@ -59,25 +127,65 @@
 ;; refresh your font settings. If Emacs still can't find your font, it likely
 ;; wasn't installed correctly. Font issues are rarely Doom issues!
 
+;; Set base and variable-pitch fonts. I currently like Fira Code and Alegreya (another favorite and my previous choice: ET Book).
+(when (display-graphic-p)
+  (setq doom-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 12)
+        doom-big-font (font-spec :family "Alegreya Sans" :size 28)
+        doom-variable-pitch-font (font-spec :family "Alegreya Sans" :size 14))
+  ;; (after! doom-themes
+  ;;   (setq doom-themes-enable-bold t
+  ;;         doom doom-themes-enable-italic t))
+  (custom-set-faces!
+    '(font-lock-comment-face :slant italic)
+    '(font-lock-keyword-face :slant italic)))
+
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-one) ;; This theme is ok
-;; (after! spacemacs-theme
-;;  (setq doom-theme 'spacemacs-light)) ;; This theme is good currently selecrted
-
-;; I love the spacemacs-light theme, but for some reason, the transparent dashboard images showed up with a light tint, which I eventually tracked to the fact that Doom by default uses the font-lock-comment-face for the dashboard banner image, and this this face has a background color in Spacemacs-light. I redefine the doom-dashboard-banner face to use the default face, which fixes the problem. Another way to fix it (commented out below) is to disable the background tint color in the theme. While we are at it, I also fix doom-dashboard-loaded, which suffers from the same problem.
-
-;;(custom-set-faces!
-;;  '(doom-dashboard-banner :inherit default)
-;;  '(doom-dashboard-loaded :inherit default))
-;;(setq spacemacs-theme-comment-bg nil)
-
-
+(setq doom-theme 'doom-one-light) ;; This theme is ok
 
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type t)
+;; create a menu for toggling truncate lines
+(map! :leader
+      :desc "Toggle truncate lines"
+      "t t" #'toggle-truncate-lines)
+
+;; Setting a menu for Bookmarks and Buffers
+(map! :leader
+      :desc "List bookmarks"
+      "b L" #'list-bookmarks
+      :leader
+      :desc "Save current bookmarks to bookmark file"
+      "b w" #'bookmark-save)
+
+;; set a menu for commenting code
+(map! :leader
+      :desc "Toggle Comment or un Comment Region"
+      "i c" #'comment-or-uncomment-region )
+
+;; keyboard mapping escape inside the letters for devil mode
+(use-package! key-chord
+  :after evil
+  :config
+  (key-chord-mode 1)
+  (setq key-chord-two-keys-delay 0.3)  ; adjust if you like
+  (key-chord-define evil-insert-state-map "jj" #'evil-normal-state)
+  (key-chord-define evil-insert-state-map "jk" #'evil-normal-state))
+
+;; (after! evil
+;;   (define-key evil-normal-state-map (kbd "B") #'evil-beginning-of-line)
+;;   (define-key evil-normal-state-map (kbd "E") #'evil-end-of-line))
+
+;;
+;; Projectile
+;;
+;; (projectile-add-known-project “~/Dropbox/org”)
+;; (projectile-add-known-project “~/Dropbox/projects/well-integrity-platform/file-uploader”)
+;;
+;; End Projectile configuration
+;;
 
 ;; ;;
 ;; ;; General Org Configuration
@@ -100,9 +208,10 @@
 ;; The org-bullets package replaces all headline markers with different Unicode bullets:
 (use-package org-bullets
     :config
-    (add-hook 'org-mode-hooK (lambda () (org-bullets-mode 1))))
+    (add-hook 'org-mode-hook (lambda () (org-bullets-mode 1))))
 
 ;; Finally, we set up a nice proportional font, in different sizes, for the headlines. The fonts listed will be tried in sequence, and the first one found will be used. My current favorite is ET Book, feel free to add your own:
+(when (display-graphic-p)
   (let* ((variable-tuple
           (cond ((x-list-fonts "Alegreya Sans")         '(:font "Alegreya Sans"))
                 ((x-list-fonts "Source Sans Pro") '(:font "Source Sans Pro"))
@@ -125,22 +234,26 @@
      `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.75))))
      `(org-document-title ((t (,@headline ,@variable-tuple :height 2.0 :underline nil))))))
 
-;; Step 2: Setting up variable-pitch and fixed-pitch faces
-;; My next realization was that Emacs already includes support for displaying proportional fonts with the variable-pitch-mode command. You can try it right now: type M-x variable-pitch-mode and your current buffer will be shown in a proportional font (you can disable it by running variable-pitch-mode again). On my Mac the default variable-pitch font is Helvetica. You can change the font used by configuring the variable-pitch face. You can do this interactively through the customize interface by typing M-x customize-face variable-pitch. At the moment I like Source Sans Pro ET Book.
+  ;; Step 2: Setting up variable-pitch and fixed-pitch faces
+  ;; My next realization was that Emacs already includes support for displaying proportional fonts with the variable-pitch-mode command. You can try it right now: type M-x variable-pitch-mode and your current buffer will be shown in a proportional font (you can disable it by running variable-pitch-mode again). On my Mac the default variable-pitch font is Helvetica. You can change the font used by configuring the variable-pitch face. You can do this interactively through the customize interface by typing M-x customize-face variable-pitch. At the moment I like Source Sans Pro ET Book.
 
-;; As a counterpart to variable-pitch, you need to configure the fixed-pitch face for the text that needs to be shown in a monospaced font. My first instinct was to inherit this from my default face (I use Inconsolata Fira Code), but it seems that this gets remapped when variable-pitch-mode is active, so I had to configure it by hand with the same font as my default face.
+  ;; As a counterpart to variable-pitch, you need to configure the fixed-pitch face for the text that needs to be shown in a monospaced font. My first instinct was to inherit this from my default face (I use Inconsolata Fira Code), but it seems that this gets remapped when variable-pitch-mode is active, so I had to configure it by hand with the same font as my default face.
 
-;; What I would suggest is that you customize the fonts interactively, as you can see live how it looks on your text. You can make the configuration permanent from the customize screen as well. If you want to explicitly set them in your configuration file, you can do it with the custom-theme-set-faces function, like this:
+  ;; What I would suggest is that you customize the fonts interactively, as you can see live how it looks on your text. You can make the configuration permanent from the customize screen as well. If you want to explicitly set them in your configuration file, you can do it with the custom-theme-set-faces function, like this:
 
   (custom-theme-set-faces
    'user
-   '(variable-pitch ((t (:family "Alegreya" :height 180 :weight thin))))
-   '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160)))))
+   '(variable-pitch ((t (:family "Alegreya Sans" :height 180 :weight thin))))
+   '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160))))))
 
 ;; Tip #1: you can get the LISP expression for your chosen font (the part that looks like ((t (:family ... ))) from the customize-face screen - open the “State” button and choose the “Show Lisp Expression” menu item.
 ;; Tip #2: if you use a Mac, you can get the value to use for the :family attribute by looking at the “Family” attribute in the Font Book application for the font you want to use.
 ;; You can enable variable-pitch-mode automatically for org buffers by setting up a hook like this:
 (add-hook 'org-mode-hook 'variable-pitch-mode)
+
+;; Olivetti mode allows to change the width of the text you want to work with https://github.com/rnkn/olivetti
+;; Enable hook to org mode
+;; (add-hook 'org-mode-hook 'olivetti-mode)
 
 ;; Allow mixed fonts in a buffer. This is particularly useful for Org mode, so I can mix source and prose blocks in the same document. I also manually enable solaire-mode in Org mode as a workaround for font scaling not working properly.
 (add-hook! 'org-mode-hook #'mixed-pitch-mode)
@@ -194,7 +307,12 @@
         (lambda ()
           (and (looking-at org-outline-regexp)
                (looking-back "^\**")))))
-
+(after! org
+  (map! :map org-mode-map
+      :n "g b" (cmd! (org-emphasize ?*))   ;; bold
+      :n "g i" (cmd! (org-emphasize ?/))   ;; italic
+      :n "g u" (cmd! (org-emphasize ?_))   ;; underline
+      ))
 ;; Disable electric-mode, which is now respected by Org and which creates some confusing indentation sometimes.
 (add-hook! org-mode (electric-indent-local-mode -1))
 
@@ -453,11 +571,11 @@ title."
 ;; Publishing a Book with Leanpub and Org Mode by Jon Snader (from where I found the links to the above).
 ;; Building upon these, I developed a new ox-leanpub package which you can find in MELPA (source at https://github.com/zzamboni/ox-leanpub), and which I load and configure below.
 ;; The ox-leanpub module sets up Markua export automatically. I add the code for setting up the Markdown exporter too (I don’t use it, but just to keep an eye on any breakage):
-(use-package! ox-leanpub
-  :after org
-  :config
-  (require 'ox-leanpub-markdown)
-  (org-leanpub-book-setup-menu-markdown))
+;; (use-package! ox-leanpub
+;;   :after org
+;;   :config
+;;   (require 'ox-leanpub-markdown)
+;;   (org-leanpub-book-setup-menu-markdown))
 ;; I highly recommend using Markua rather than Markdown, as it is the format that Leanpub is guaranteed to support in the future, and where most of the new features are being developed.
 ;; With this setup, I can write my book in org-mode (I usually keep a single book.org file at the top of my repository), and then call the corresponding “Book” export commands. The manuscript directory, as well as the corresponding Book.txt and other necessary files are created and populated automatically.
 ;; If you are interested in learning more about publishing to Leanpub with Org-mode, check out my book Publishing with Emacs, Org-mode and Leanpub.
@@ -525,13 +643,13 @@ title."
 ;; Reformatting an Org buffer
 ;; I picked up this little gem in the org mailing list. A function that reformats the current buffer by regenerating the text from its internal parsed representation. Quite amazing.
 
-(defun zz/org-reformat-buffer ()
-  (interactive)
-  (when (y-or-n-p "Really format current buffer? ")
-    (let ((document (org-element-interpret-data (org-element-parse-buffer))))
-      (erase-buffer)
-      (insert document)
-      (goto-char (point-min)))))
+;; (defun zz/org-reformat-buffer ()
+;;   (interactive)
+;;   (when (y-or-n-p "Really format current buffer? ")
+;;     (let ((document (org-element-interpret-data (org-element-parse-buffer))))
+;;       (erase-buffer)
+;;       (insert document)
+;;       (goto-char (point-min)))))
 
 ;; Avoiding non-Org mode files
 ;; org-pandoc-import is a mode that automates conversions to/from Org mode as much as possible.
@@ -663,6 +781,16 @@ end repeat\"")))
   :config
   (setq org-auto-tangle-default t))
 
+;; configure ob-mermaid
+(setq ob-mermaid-cli-path "/Users/aua/.nvm/versions/node/v22.17.0/bin/mmdc")
+
+;; Configure org babel languages
+    (org-babel-do-load-languages
+     'org-babel-load-languages
+     '((emacs-lisp . t)
+       (mermaid . t)
+       (python . t)
+       (markdown . t)))
 
 ;; Some useful settings for LISP coding - smartparens-strict-mode to enforce parenthesis to match. I map M-( to enclose the next expression as in paredit using a custom function. Prefix argument can be used to indicate how many expressions to enclose instead of just 1. E.g. C-u 3 M-( will enclose the next 3 sexps.
 (defun zz/sp-enclose-next-sexp (num)
@@ -771,13 +899,27 @@ end repeat\"")))
   ("M-q" . unfill-toggle)
   ("A-q" . unfill-paragraph))
 
+(defun kdm/html2org-clipboard ()
+  "Convert clipboard contents from HTML to Org and then paste (yank)."
+  (interactive)
+  (kill-new (shell-command-to-string "osascript -e 'the clipboard as \"HTML\"' | perl -ne 'print chr foreach unpack(\"C*\",pack(\"H*\",substr($_,11,-3)))' | pandoc -f html -t json | pandoc -f json -t org --wrap=none"))
 
+  (yank)
 
+  ;; This one is for the beginning char
+  (setcar org-emphasis-regexp-components " \t('\" {")
+  ;; This one is for the ending char.
+  (setcar (nthcdr 1 org-emphasis-regexp-components) "- \t.,: !?;'\")}\\"))
 
+(map! :localleader
+      (:prefix ("H" . "HTML") ; Creates a new "h" menu under SPC with "html" as the label
+       :desc "Paste HTML to Org" "p" #'kdm/html2org-clipboard))
 
-
-
-
+;; Insert timestamp on the note heading automatically https://xiangji.me/2015/07/13/a-few-of-my-org-mode-customizations/
+(defun insert-inactive-timestamp ()
+(interactive)
+(org-insert-time-stamp nil t t nil nil nil))
+(add-hook 'org-insert-heading-hook 'insert-inactive-timestamp)
 
 
 
@@ -787,38 +929,77 @@ end repeat\"")))
 ;; ;;
 ;; ;;
 
+;;
+;; Clojure development environment config
+;;
 
+;; Configure lsp (Language Server Protocol)
+(after! lsp-mode
+  (setq lsp-clojure-custom-server-command '("bash" "-c" "clojure-lsp")))
+;; Configure CIDER
+(after! cider
+  (setq cider-shadow-cljs-command "npx shadow-cljs"))
+;;
+;; End of Clojure development environment config
+;;
 
 ;;
+;; Docker development environment config
+;; NOTE: Similar functionality is built-in to Emacs from version 29 onwards, so perhaps you don't need this package any more.
+;; (use-package! docker-tramp
+;;   :config
+;;   (setq docker-tramp-use-names t))
 ;;
+;; Docker development environment config
+;;
+
 ;;
 ;; Maximize the window upon startup.
-
-(setq initial-frame-alist '((top . 1) (left . 1) (width . 114) (height . 32)))
+(when (display-graphic-p)
+  (setq initial-frame-alist '((top . 1) (left . 1) (width . 114) (height . 32))))
 ;;(add-to-list 'initial-frame-alist '(maximized))
 
 ;;I like ligatures, but some of the ones that get enabled by the (ligatures +extra) module don’t work in the font I use, or I don’t like them, so I disable them.
 
-(plist-put! +ligatures-extra-symbols
-  :and           nil
-  :or            nil
-  :for           nil
-  :not           nil
-  :true          nil
-  :false         nil
-  :int           nil
-  :float         nil
-  :str           nil
-  :bool          nil
-  :list          nil
-)
-(let ((ligatures-to-disable '(:true :false :int :float :str :bool :list :and :or :for :not)))
-  (dolist (sym ligatures-to-disable)
-    (plist-put! +ligatures-extra-symbols sym nil)))
+;; (plist-put! +ligatures-extra-symbols
+;;   :and           nil
+;;   :or            nil
+;;   :for           nil
+;;   :not           nil
+;;   :true          nil
+;;   :false         nil
+;;   :int           nil
+;;   :float         nil
+;;   :str           nil
+;;   :bool          nil
+;;   :list          nil
+;; )
+;; (let ((ligatures-to-disable '(:true :false :int :float :str :bool :list :and :or :for :not)))
+;;   (dolist (sym ligatures-to-disable)
+;;     (plist-put! +ligatures-extra-symbols sym nil)))
 
 ;; Enable showing a word count in the modeline. This is only shown for the modes listed in doom-modeline-continuous-word-count-modes (Markdown, GFM and Org by default).
 
 (setq doom-modeline-enable-word-count t)
+
+;; begin of configuration of GPTEL
+;;
+
+(use-package! gptel
+  :defer t
+  :config
+  (setq gptel-backend
+        (gptel-make-ollama "Ollama"
+          :host "localhost:11434"
+          :stream t
+          :models '(qwen2.5-coder:0.5b)))
+  (setq gptel-model 'qwen2.5-coder:0.5b))
+;;
+;;
+;;end of configuration of gptel
+;;
+
+
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.

@@ -71,8 +71,8 @@
            :repo "tecosaur/org-pandoc-import"
            :files ("*.el" "filters" "preprocessors")))
 ;; ox leanpub pakcage
-(package! ox-leanpub
-  :recipe (:local-repo "~/Dropbox/Personal/devel/emacs/ox-leanpub"))
+;; (package! ox-leanpub
+;;   :recipe (:local-repo "~/Dropbox/Personal/devel/emacs/ox-leanpub"))
 ;; ;; The annotate package is nice - allows adding annotations to files without modifying the file itself.
 (package! annotate)
 ;; ;; gift-mode for editing quizzes in GIFT format.
@@ -80,7 +80,7 @@
 ;; ;; Add “unfill” commands to parallel the “fill” ones, bind A-q to unfill-paragraph and rebind M-q to the unfill-toggle command, which fills/unfills paragraphs alternatively.
 (package! unfill)
 ;; ;; I find iedit absolutely indispensable when coding. In short: when you hit Ctrl-;, all occurrences of the symbol under the cursor (or the current selection) are highlighted, and any changes you make on one of them will be automatically applied to all others. It’s great for renaming variables in code, but it needs to be used with care, as it has no idea of semantics, it’s a plain string replacement, so it can inadvertently modify unintended parts of the code.
-(package! iedit)
+(package! iedit :recipe (:branch "main"))
 ;; ;; Use Emacs Everywhere!
 (package! emacs-everywhere :pin nil)
 ;; Dockerfile mode:
@@ -96,6 +96,8 @@
 ;; Elvish shell, with support for org-babel.
 (package! elvish-mode)
 (package! ob-elvish)
+;; mermaid package for org mode babel
+(package! ob-mermaid)
 ;; Tangle-on-save has revolutionized my literate programming workflow. It automatically runs org-babel-tangle upon saving any org-mode buffer, which means the resulting files will be automatically kept up to date. For a while I did this by manually adding org-babel-tangle to the after-save hook in Org mode, but now I use the org-auto-tangle package, which does this asynchronously and selectively for each Org file where it is desired.
 (package! org-auto-tangle)
 ;; I’m also testing org-ql for structured queries on Org documents.
@@ -114,3 +116,17 @@
 (package! ox-jira)
 ;; Org Bullets package
 (package! org-bullets)
+;; Olivetti mode package
+(package! olivetti)
+;; Enhance the look of org-mode buffers with better styling
+(package! org-modern)
+;; Trun on quick two key sequences in to commands for evil mode
+(package! key-chord)
+;; Ensure that your macOS terminal is imported
+;; (package! exec-path-from-shell)
+;; GPTEL packaaaage
+(package! gptel)
+;; install agent-shell to integrate claude code, codex etc. https://github.com/xenodium/agent-shell
+(package! shell-maker)
+(package! acp)
+(package! agent-shell)
