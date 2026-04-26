@@ -7,6 +7,9 @@
 (setq user-full-name "Andres Umana"
       user-mail-address "aumana@gmail.com")
 
+;; Load variable abstractions for multi-platform support
+(load! "modules/00-vars")
+
 ;; configuration for agent-sell https://github.com/xenodium/agent-shell
 (require 'acp)
 (require 'agent-shell)
@@ -70,23 +73,6 @@
             (with-selected-frame frame
               (unless (display-graphic-p frame)
                 (setq doom-modeline-icon nil)))))  ;; add more TTY-only tweaks here if needed
-
-;; Change the Mac modifiers to my liking. I also disable passing Control characters to the system, to avoid that C-M-space launches the Character viewer instead of running mark-sexp.
-(cond ((featurep :system 'macos)
-       (setq mac-command-modifier       'meta
-             mac-option-modifier        'alt
-             mac-right-option-modifier  nil
-             mac-pass-control-to-system t)))
-
-(when (and (eq system-type 'darwin) (display-graphic-p))
-  ;; Cocoa/NS Emacs (Emacs.app)
-  (when (boundp 'ns-alternate-modifier)        (setq ns-alternate-modifier 'meta))
-  (when (boundp 'ns-right-alternate-modifier)  (setq ns-right-alternate-modifier 'none))
-
-  ;; Yamamoto emacs-mac port (if you ever switch builds)
-  (when (boundp 'mac-option-modifier)          (setq mac-option-modifier 'meta))
-  (when (boundp 'mac-right-option-modifier)    (setq mac-right-option-modifier 'none))
-)
 
 ;; When at the beginning of the line, make Ctrl-K remove the whole line, instead of just emptying it.
 (setq kill-whole-line t)
@@ -190,10 +176,6 @@
 ;; ;;
 ;; ;; General Org Configuration
 ;; ;;
-
-;; If you use `org' and don't want your org files in the default location below,
-;; change `org-directory'. It must be set before org loads!
-(setq org-directory "~/Dropbox/org/")
 
 ;; Step 1: Configure faces for Org headlines and lists
 ;; My first step was to make org-mode much more readable by using different fonts for headings, hiding some of the markup, and improving list bullets. I took these settings originally from Howard Abrams' excellent Org as a Word Processor article, although I have tweaked them a bit.
