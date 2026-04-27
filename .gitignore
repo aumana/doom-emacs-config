@@ -1,5 +1,6 @@
 .local/
 .cache/
 .env/
+.worktrees/
 .DS_Store
 *~
