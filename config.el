@@ -74,6 +74,23 @@
               (unless (display-graphic-p frame)
                 (setq doom-modeline-icon nil)))))  ;; add more TTY-only tweaks here if needed
 
+;; Change the Mac modifiers to my liking. I also disable passing Control characters to the system, to avoid that C-M-space launches the Character viewer instead of running mark-sexp.
+(cond ((featurep :system 'macos)
+       (setq mac-command-modifier       'meta
+             mac-option-modifier        'alt
+             mac-right-option-modifier  nil
+             mac-pass-control-to-system t)))
+
+(when (and (eq system-type 'darwin) (display-graphic-p))
+  ;; Cocoa/NS Emacs (Emacs.app)
+  (when (boundp 'ns-alternate-modifier)        (setq ns-alternate-modifier 'meta))
+  (when (boundp 'ns-right-alternate-modifier)  (setq ns-right-alternate-modifier 'none))
+
+  ;; Yamamoto emacs-mac port (if you ever switch builds)
+  (when (boundp 'mac-option-modifier)          (setq mac-option-modifier 'meta))
+  (when (boundp 'mac-right-option-modifier)    (setq mac-right-option-modifier 'none))
+)
+
 ;; When at the beginning of the line, make Ctrl-K remove the whole line, instead of just emptying it.
 (setq kill-whole-line t)
 
@@ -115,9 +132,9 @@
 
 ;; Set base and variable-pitch fonts. I currently like Fira Code and Alegreya (another favorite and my previous choice: ET Book).
 (when (display-graphic-p)
-  (setq doom-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 12)
-        doom-big-font (font-spec :family "Alegreya Sans" :size 28)
-        doom-variable-pitch-font (font-spec :family "Alegreya Sans" :size 14))
+  (setq doom-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 13)
+        doom-variable-pitch-font (font-spec :family "Alegreya Sans" :size 15)
+        doom-big-font (font-spec :family "Alegreya Sans" :size 20))
   ;; (after! doom-themes
   ;;   (setq doom-themes-enable-bold t
   ;;         doom doom-themes-enable-italic t))
@@ -176,21 +193,26 @@
 ;; ;;
 ;; ;; General Org Configuration
 ;; ;;
+(after! org
+  (setq org-agenda-custom-commands
+        '(("c" "Simple agenda view"
+           ((agenda "")
+            (alltodo ""
+                     ((org-agenda-overriding-header "Unscheduled")
+                      (org-agenda-skip-function
+                       '(org-agenda-skip-entry-if
+                         (quote scheduled))))))))))
+;; If you use `org' and don't want your org files in the default location below,
+;; change `org-directory'. It must be set before org loads!
+(setq org-directory "~/Dropbox/org/")
 
 ;; Step 1: Configure faces for Org headlines and lists
 ;; My first step was to make org-mode much more readable by using different fonts for headings, hiding some of the markup, and improving list bullets. I took these settings originally from Howard Abrams' excellent Org as a Word Processor article, although I have tweaked them a bit.
-;; First, we ask org-mode to hide the emphasis markup (e.g. /.../ for italics, *...* for bold, etc.):
-(setq org-hide-emphasis-markers t)
 
 ;; Then, we set up a font-lock substitution for list markers (I always use “-” for lists, but you can change this if you want) by replacing them with a centered-dot character:
 (font-lock-add-keywords 'org-mode
                           '(("^ *\\([-]\\) "
                              (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
-
-;; The org-bullets package replaces all headline markers with different Unicode bullets:
-(use-package org-bullets
-    :config
-    (add-hook 'org-mode-hook (lambda () (org-bullets-mode 1))))
 
 ;; Finally, we set up a nice proportional font, in different sizes, for the headlines. The fonts listed will be tried in sequence, and the first one found will be used. My current favorite is ET Book, feel free to add your own:
 (when (display-graphic-p)
@@ -210,7 +232,7 @@
      `(org-level-7 ((t (,@headline ,@variable-tuple))))
      `(org-level-6 ((t (,@headline ,@variable-tuple))))
      `(org-level-5 ((t (,@headline ,@variable-tuple))))
-     `(org-level-4 ((t (,@headline  fs,@variable-tuple :height 1.1))))
+     `(org-level-4 ((t (,@headline ,@variable-tuple :height 1.1))))
      `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.25))))
      `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.5))))
      `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.75))))
@@ -226,34 +248,104 @@
   (custom-theme-set-faces
    'user
    '(variable-pitch ((t (:family "Alegreya Sans" :height 180 :weight thin))))
-   '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160))))))
+   '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160)))))
 
-;; Tip #1: you can get the LISP expression for your chosen font (the part that looks like ((t (:family ... ))) from the customize-face screen - open the “State” button and choose the “Show Lisp Expression” menu item.
-;; Tip #2: if you use a Mac, you can get the value to use for the :family attribute by looking at the “Family” attribute in the Font Book application for the font you want to use.
-;; You can enable variable-pitch-mode automatically for org buffers by setting up a hook like this:
-(add-hook 'org-mode-hook 'variable-pitch-mode)
+  ;; Tip #1: you can get the LISP expression for your chosen font (the part that looks like ((t (:family ... ))) from the customize-face screen - open the “State” button and choose the “Show Lisp Expression” menu item.
+  ;; Tip #2: if you use a Mac, you can get the value to use for the :family attribute by looking at the “Family” attribute in the Font Book application for the font you want to use.
+  ;; You can enable variable-pitch-mode automatically for org buffers by setting up a hook like this:
 
-;; Olivetti mode allows to change the width of the text you want to work with https://github.com/rnkn/olivetti
-;; Enable hook to org mode
-;; (add-hook 'org-mode-hook 'olivetti-mode)
+  ;; Allow mixed fonts in a buffer. This is particularly useful for Org mode, so I can mix source and prose blocks in the same document. I also manually enable solaire-mode in Org mode as a workaround for font scaling not working properly.
+  (use-package! mixed-pitch
+    :hook (org-mode . mixed-pitch-mode))
 
-;; Allow mixed fonts in a buffer. This is particularly useful for Org mode, so I can mix source and prose blocks in the same document. I also manually enable solaire-mode in Org mode as a workaround for font scaling not working properly.
-(add-hook! 'org-mode-hook #'mixed-pitch-mode)
-;; (add-hook! 'org-mode-hook #'solaire-mode)
-(setq mixed-pitch-variable-pitch-cursor nil)
+  (after! org
+    ;; Keep these in fixed-pitch even when mixed-pitch-mode is on
+    (custom-set-faces!
+      '(org-table :inherit fixed-pitch)
+      '(org-code  :inherit (shadow fixed-pitch))
+      '(org-block :inherit fixed-pitch)
+      '(org-block-begin-line :inherit (shadow fixed-pitch))
+      '(org-block-end-line   :inherit (shadow fixed-pitch))))
+  (after! org
+    ;; General Org look & feel
+    (setq org-startup-indented t
+          org-pretty-entities t
+          org-hide-emphasis-markers t
+          org-ellipsis " ▾")
+    (defun org-toggle-emphasis ()
+      "Toggle hiding/showing of org emphasis markes"
+      (interactive)
+      (if org-hide-emphasis-markers
+          (set-variable 'org-hide-emphasis-markers nill)
+        (set-variable 'org-hide-emphasis-markers t)))
+    
 
-;; Step 3: Use long lines and visual-line-mode
-;; One thing you will notice right away with proportional fonts is that filling paragraphs no longer makes sense. This is because fill-paragraph works based on the number of characters in a line, but with a proportional font, characters have different widths, so a filled paragraph looks strange:
-;; Of course, you can still do it, but there’s a better way. With visual-line-mode enabled, long lines will flow and adjust to the width of the window. This is great for writing prose, because you can choose how wide your lines are by just resizing your window.
-;; There is one habit you have to change for this to work: the instinct (at least for me) of pressing M-q every once in a while to readjust the current paragraph. I personally think it’s worth it.
-;; You can enable visual-line-mode automatically for org buffers by setting up another hook:
-(add-hook 'org-mode-hook 'visual-line-mode)
+    ;; Headings hierarchy
+    (custom-set-faces!
+      '(org-level-1 :height 1.4 :weight bold)
+      '(org-level-2 :height 1.25 :weight semi-bold)
+      '(org-level-3 :height 1.15 :weight semi-bold)
+      '(org-level-4 :height 1.1)
+      '(org-document-title :height 1.6 :weight bold)))
 
-;; Step 4: Configure faces for specific Org elements
-;; After all the changes above, you will have nice, proportional fonts in your Org buffers. However, there are some things for which you still want monospace fonts! Things like source blocks, examples, tags and some other markup elements still look better in a fixed-spacing font, in my opinion. Fortunately, org-mode has an extremely granular face selection, so you can easily customize them to have different elements shown in the correct font, color, and size.
-;; Tip: you can use C-u C-x = (which runs the command what-cursor-position with a prefix argument) to show information about the character under the cursor, including the face which is being used for it. If you find a markup element which is not correctly configured, you can use this to know which face you have to customize.
-;; You can configure specific faces any way you want, but if you simply want them to be rendered in monospace font, you can set them to inherit from the fixed-pitch face we configured before. You can also inherit from multiple faces to combine their attributes.
-;; Here are the faces I have configured so far (there are probably many more to do, but I don’t use org-mode to its full capacity yet). I’m showing here the LISP expressions, but you can just as well configure them using customize-face.
+  ;; Now Org buffers are centered with a readable text width, similar to a writing app.
+  (use-package! visual-fill-column
+    :hook (org-mode . andres/org-visual-setup)
+    :config
+    (defun andres/org-visual-setup ()
+      ;; soft wrapping
+      (visual-line-mode 1)
+
+      ;; centered text with margins
+      (setq visual-fill-column-width 150
+            visual-fill-column-center-text t)
+      (visual-fill-column-mode 1)
+
+      ;; a bit of extra line spacing
+      (setq-local line-spacing 0.15)))
+
+  ;; Make structure, links, and tables look clean
+  ;; Even nicer bullets & tables with org-modern (optional but very nice)
+  ;; This is a modern replacement/companion for Org’s default faces. Good for headings, checkboxes, table borders, etc.
+  (use-package! org-modern
+    :hook ((org-mode . org-modern-mode)
+           (org-agenda-finalize . org-modern-agenda))
+    :config
+    (setq
+     ;; Heading bullets per level
+     org-modern-star '("◉" "○" "◆" "◇" "•")
+     ;; Finely drawn table lines
+     org-modern-table-vertical 1
+     org-modern-table-horizontal 0.2
+     ;; Nicer checkboxes
+     org-modern-checkbox
+     '((?X . "☑") (?- . "❍") (?  . "☐"))
+
+     ;; Horizontal rule
+     org-modern-horizontal-rule "────────────────")
+
+    ;; To avoid fighting with Doom’s +pretty, you can disable org-superstar if needed:
+    (after! org-superstar
+      (org-superstar-mode -1)))
+
+
+
+
+  ;; (add-hook! 'org-mode-hook #'solaire-mode)
+  (setq mixed-pitch-variable-pitch-cursor nil)
+
+  ;; Step 3: Use long lines and visual-line-mode
+  ;; One thing you will notice right away with proportional fonts is that filling paragraphs no longer makes sense. This is because fill-paragraph works based on the number of characters in a line, but with a proportional font, characters have different widths, so a filled paragraph looks strange:
+  ;; Of course, you can still do it, but there’s a better way. With visual-line-mode enabled, long lines will flow and adjust to the width of the window. This is great for writing prose, because you can choose how wide your lines are by just resizing your window.
+  ;; There is one habit you have to change for this to work: the instinct (at least for me) of pressing M-q every once in a while to readjust the current paragraph. I personally think it’s worth it.
+  ;; You can enable visual-line-mode automatically for org buffers by setting up another hook:
+  (add-hook 'org-mode-hook 'visual-line-mode)
+
+  ;; Step 4: Configure faces for specific Org elements
+  ;; After all the changes above, you will have nice, proportional fonts in your Org buffers. However, there are some things for which you still want monospace fonts! Things like source blocks, examples, tags and some other markup elements still look better in a fixed-spacing font, in my opinion. Fortunately, org-mode has an extremely granular face selection, so you can easily customize them to have different elements shown in the correct font, color, and size.
+  ;; Tip: you can use C-u C-x = (which runs the command what-cursor-position with a prefix argument) to show information about the character under the cursor, including the face which is being used for it. If you find a markup element which is not correctly configured, you can use this to know which face you have to customize.
+  ;; You can configure specific faces any way you want, but if you simply want them to be rendered in monospace font, you can set them to inherit from the fixed-pitch face we configured before. You can also inherit from multiple faces to combine their attributes.
+  ;; Here are the faces I have configured so far (there are probably many more to do, but I don’t use org-mode to its full capacity yet). I’m showing here the LISP expressions, but you can just as well configure them using customize-face.
   (custom-theme-set-faces
    'user
    '(org-block ((t (:inherit fixed-pitch))))
@@ -267,7 +359,7 @@
    '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
    '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
    '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
-   '(org-verbatim ((t (:inherit (shadow fixed-pitch))))))
+   '(org-verbatim ((t (:inherit (shadow fixed-pitch)))))))
 ;; Update (2019/10/24): updated the settings above based on my latest config. Update (2019/02/24): thanks to Ben for figuring out the fix to the vertical spacing issue noted below. The trick is to set the org-indent face (see above) to inherit from fixed-pitch as well.
 
 ;; Insert Org headings at point, not after the current subtree (this is enabled by default by Doom).
@@ -321,13 +413,39 @@
            #'variable-pitch-mode)
 
 ;; Use org-appear to reveal emphasis markers when moving the cursor over them.
-(add-hook! org-mode :append #'org-appear-mode)
+(use-package! org-appear
+  :hook (org-mode . org-appear-mode)
+  :config
+  (setq org-appear-autoemphasis t
+        org-appear-autolinks t
+        org-appear-autosubmarkers t))
+
+;; Table usability tweaks
+;; These don’t change looks dramatically, but they make working with tables and formulas feel smoother:
+
+(after! org
+  (setq org-table-auto-blank-field t      ;; blank cell on TAB, easy typing
+        org-table-automatic-realign t     ;; auto align on edits
+        org-table-use-standard-references t)) ;; more Excel-like references
 
 ;; Capturing and note taking
 ;; First, I define where all my Org-captured things can be found.
-;; (after! org
-;;   (setq org-agenda-files
-;;         '("~/gtd" "~/Work/work.org.gpg" "~/org/")))
+(after! org
+  (setq org-agenda-files
+        (quote ("/Users/aua/Library/CloudStorage/Dropbox/org/aue"
+                "/Users/aua/Library/CloudStorage/Dropbox/org/eda"
+                "/Users/aua/Library/CloudStorage/Dropbox/org/agm"))))
+;; Targets include this file and any file contributing to the agenda - up to 9 levels deep
+  (setq org-refile-targets (quote ((nil :maxlevel . 9)
+                                   (org-agenda-files :maxlevel . 9))))
+ ;; Use full outline paths for refile targets - we file directly with IDO
+  (setq org-refile-use-outline-path t)
+
+  ;; Targets complete directly with IDO
+  (setq org-outline-path-complete-in-steps nil)
+
+  ;; Allow refile to create parent tasks with confirmation
+  (setq org-refile-allow-creating-parent-nodes (quote confirm))
 
 ;; I define some global keybindings to open my frequently-used org files (original tip from Learn how to take notes more efficiently in Org Mode).
 ;; First, I define a helper function to define keybindings that open files. Note that this requires lexical binding to be enabled, so that the lambda creates a closure, otherwise the keybindings don’t work.
@@ -447,12 +565,12 @@ title."
 ;; Tasks and agenda
 ;; Customize the agenda display to indent todo items by level to show nesting, and enable showing holidays in the Org agenda display.
 (after! org-agenda
-  ;; (setq org-agenda-prefix-format
-  ;;       '((agenda . " %i %-12:c%?-12t% s")
-  ;;         ;; Indent todo items by level to show nesting
-  ;;         (todo . " %i %-12:c%l")
-  ;;         (tags . " %i %-12:c")
-  ;;        (search . " %i %-12:c")))
+  (setq org-agenda-prefix-format
+        '((agenda . " %i %-12:c%?-12t% s")
+          ;; Indent todo items by level to show nesting
+          (todo . " %i %-12:c%l")
+          (tags . " %i %-12:c")
+         (search . " %i %-12:c")))
   (setq org-agenda-include-diary t))
 
 ;; ;;Install and load some custom local holiday lists I’m interested in.
@@ -503,7 +621,7 @@ title."
   :after org
   :config
   ;; where org-gtd will put its files. This value is also the default one.
-  (setq org-gtd-directory "~/gtd/")
+  (setq org-gtd-directory "~/Dropbox/org/")
   ;; package: https://github.com/Malabarba/org-agenda-property
   ;; this is so you can see who an item was delegated to in the agenda
   (setq org-agenda-property-list '("DELEGATED_TO"))
@@ -645,6 +763,52 @@ title."
 ;; org-pandoc-import is a mode that automates conversions to/from Org mode as much as possible.
 
 (use-package org-pandoc-import)
+(after! org
+  (require 'eww)
+
+  (setq org-export-backends '(ascii html icalendar latex md odt)
+        org-latex-pdf-process
+        '("latexmk -pdf -interaction=nonstopmode -output-directory=%o %f"))
+
+  (use-package! ox-pandoc
+    :after org
+    :config
+    (add-to-list 'org-export-backends 'pandoc)
+    (setq org-pandoc-options '((standalone . t))
+          org-pandoc-options-for-docx '((toc . t))
+          org-pandoc-options-for-epub '((toc . t))))
+
+  (defun andres/org-export-html-preview ()
+    (interactive)
+    (let* ((tmpfile (make-temp-file "org-preview" nil ".html"))
+           (org-export-show-temporary-export-buffer nil))
+      (org-export-to-file 'html tmpfile)
+      (eww-open-file tmpfile)))
+
+  (defun andres/org-export-pdf-preview ()
+    (interactive)
+    (let ((pdf-file (org-latex-export-to-pdf)))
+      (when pdf-file
+        (find-file pdf-file))))
+
+  (defun andres/org-export-md-preview ()
+    (interactive)
+    (let ((buf (org-export-to-buffer 'md "*Org Markdown Preview*")))
+      (with-current-buffer buf
+        (markdown-mode)
+        (goto-char (point-min)))))
+
+  (map! :map org-mode-map
+        :localleader
+        (:prefix ("e" . "export / preview")
+         "d" #'org-export-dispatch
+         "h" #'andres/org-export-html-preview
+         "p" #'andres/org-export-pdf-preview
+         "m" #'andres/org-export-md-preview
+         "x" (cmd! (org-pandoc-export-to-docx))
+         "o" (cmd! (org-pandoc-export-to-odt))
+         "e" (cmd! (org-pandoc-export-to-epub)))))
+
 
 ;; Reveal.js presentations
 ;; I use org-re-reveal to make presentations. The functions below help me improve my workflow by automatically exporting the slides whenever I save the file, refreshing the presentation in my browser, and moving it to the slide where the cursor was when I saved the file. This helps keeping a “live” rendering of the presentation next to my Emacs window.
@@ -849,7 +1013,7 @@ end repeat\"")))
     (setq magit-repository-directories
           (seq-map (lambda (e) (cons e 0)) (json-read-file zz/repolist))))
   (setq magit-repolist-columns
-        '(("Name" 25 magit-repolist-column-ident nil)
+        '(("NameAgro Tasks" 25 magit-repolist-column-ident nil)
           ("Status" 7 magit-repolist-column-flag nil)
           ("B<U" 3 magit-repolist-column-unpulled-from-upstream
            ((:right-align t)

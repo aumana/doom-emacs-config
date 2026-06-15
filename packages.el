@@ -52,6 +52,8 @@
 ;; Set the theme to use. I like the Spacemacs-Light, which does not come with Doom, so we need to install it from package.el:
 
 ;; (package! spacemacs-theme)
+;; Mixed pitch for prettier org mode
+(package! mixed-pitch)
 ;; org download
 (package! org-download)
 ;; bank holidays packages
@@ -65,7 +67,9 @@
 (package! org-appear
   :recipe (:host github
            :repo "awth13/org-appear"))
-;; Pandoc package
+;; ox pandoc package This keeps Org as the “source of truth” and uses Pandoc for “weird” formats: docx, epub, reveal.js, etc.
+(package! ox-pandoc)
+;; Pandoc package if you also want to *import* from docx/markdown/etc to org
 (package! org-pandoc-import
   :recipe (:host github
            :repo "tecosaur/org-pandoc-import"
@@ -132,3 +136,5 @@
 (package! shell-maker)
 (package! acp)
 (package! agent-shell)
+;; Org is much nicer when the text doesn’t run edge-to-edge.
+(package! visual-fill-column)
