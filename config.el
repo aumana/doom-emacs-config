@@ -298,6 +298,14 @@
 ;; Disable electric-mode, which is now respected by Org and which creates some confusing indentation sometimes.
 (add-hook! org-mode (electric-indent-local-mode -1))
 
+;; configure mermaid client
+(after! org
+  (use-package! ob-mermaid
+    :config
+    (setq ob-mermaid-cli-path "mmdc")))
+
+
+
 ;; I really dislike completion of words as I type prose (in code it’s OK), so I disable it in Org:
 
 (defun zz/adjust-org-company-backends ()
@@ -963,6 +971,13 @@ end repeat\"")))
 ;; Enable showing a word count in the modeline. This is only shown for the modes listed in doom-modeline-continuous-word-count-modes (Markdown, GFM and Org by default).
 
 (setq doom-modeline-enable-word-count t)
+
+;; configuration markdown mode
+(after! markdown-mode
+  (map! :map markdown-mode-map
+        :localleader
+        :desc "Preview Mermaid" "m" #'markdown-mermaid-preview))
+
 
 ;; begin of configuration of GPTEL
 ;;

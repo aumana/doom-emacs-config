@@ -98,6 +98,8 @@
 (package! ob-elvish)
 ;; mermaid package for org mode babel
 (package! ob-mermaid)
+;; mermaid package for .md files
+(package! markdown-mermaid :recipe (:host github :repo "pasunboneleve/markdown-mermaid"))
 ;; Tangle-on-save has revolutionized my literate programming workflow. It automatically runs org-babel-tangle upon saving any org-mode buffer, which means the resulting files will be automatically kept up to date. For a while I did this by manually adding org-babel-tangle to the after-save hook in Org mode, but now I use the org-auto-tangle package, which does this asynchronously and selectively for each Org file where it is desired.
 (package! org-auto-tangle)
 ;; I’m also testing org-ql for structured queries on Org documents.
