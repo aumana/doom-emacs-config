@@ -313,12 +313,11 @@
   :mode ("\\.md\\'" . gfm-mode)
   :commands (markdown-mode gfm-mode)
   :config
-  (setq markdown-command "pandoc -t html5")
-  (set-face-attribute 'markdown-code-face nil :background "#1D252C"))
+  (setq markdown-command "pandoc -t html5"))
 
 ;; Make region (selection) more visible, especially over code faces.
-(custom-set-faces!
-  '(region :background "#3A4A5A"))
+;; (custom-set-faces!
+;;   '(region :background "#3A4A5A"))
 
 (use-package! simple-httpd
   :defer t
