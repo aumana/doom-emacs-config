@@ -1,5 +1,4 @@
-;; -*- no-byte-compile: t; -*-
-;;; $DOOMDIR/packages.el
+;;; $DOOMDIR/packages.el -*- lexical-binding: t; -*-
 
 ;; To install a package with Doom you must declare them here and run 'doom sync'
 ;; on the command line, then restart Emacs for the changes to take effect -- or
@@ -50,10 +49,27 @@
 ;; (unpin! t)
 ;;
 ;; Set the theme to use. I like the Spacemacs-Light, which does not come with Doom, so we need to install it from package.el:
-
+;;
+;; quelpa (for some packages)
+(package! quelpa)
+;; mac pseudo daemon when gui
+(package! mac-pseudo-daemon :disable (not IS-MAC))
 ;; (package! spacemacs-theme)
 ;; Mixed pitch for prettier org mode
 (package! mixed-pitch)
+;; org-mode packages
+
+;;(package! ivy-bibtex)
+(package! org-fragtog)
+(package! org-noter)
+(package! org-noter-pdftools)
+(package! org-notifications)
+(package! org-pdftools)
+(package! org-ref)
+(package! org-sidebar)
+(package! org-transclusion)
+(package! org-wild-notifier)
+(package! ox-rss)
 ;; org download
 (package! org-download)
 ;; bank holidays packages
@@ -74,6 +90,9 @@
   :recipe (:host github
            :repo "tecosaur/org-pandoc-import"
            :files ("*.el" "filters" "preprocessors")))
+;; Emacs major mode for working with mermaid graphs
+(package! mermaid-mode :recipe
+  (:host github :repo "abrochard/mermaid-mode"))
 ;; ox leanpub pakcage
 ;; (package! ox-leanpub
 ;;   :recipe (:local-repo "~/Dropbox/Personal/devel/emacs/ox-leanpub"))
@@ -87,6 +106,8 @@
 (package! iedit :recipe (:branch "main"))
 ;; ;; Use Emacs Everywhere!
 (package! emacs-everywhere :pin nil)
+;; This package displays ElDoc documentations in a childframe. The childframe is selectable and scrollable with mouse, even though the cursor is hidden.
+(package! eldoc-box)
 ;; Dockerfile mode:
 (package! dockerfile-mode)
 ;; package-lint for checking MELPA packages.
@@ -138,3 +159,22 @@
 (package! agent-shell)
 ;; Org is much nicer when the text doesn’t run edge-to-edge.
 (package! visual-fill-column)
+;; sqlite3 backend
+(package! sqlite3)
+;; GraphQL
+(package! graphql-mode)
+(package! graphql)
+;; HTML impatient-mode small server to see it
+(package! impatient-mode)
+;; for coq/iris/math
+(package! math-symbol-lists)
+;; Automatically install and use tree-sitter major modes in Emacs 29+. If the tree-sitter version can’t be used, fall back to the original major mode.
+(package! treesit-auto)
+;; pr review
+;; https://github.com/blahgeek/emacs-pr-review
+(package! pr-review)
+;; debug
+(package! dape)
+;; terms
+;; multi-vterm
+(package! multi-vterm)

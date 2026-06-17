@@ -7,6 +7,10 @@
 (setq user-full-name "Andres Umana"
       user-mail-address "aumana@gmail.com")
 
+;; Ensure local bins are in exec-path
+(add-to-list 'exec-path (expand-file-name "~/.local/bin"))
+(add-to-list 'exec-path (expand-file-name "~/go/bin"))
+
 ;; Load variable abstractions for multi-platform support
 (load! "modules/00-vars")
 
@@ -89,7 +93,7 @@
   ;; Yamamoto emacs-mac port (if you ever switch builds)
   (when (boundp 'mac-option-modifier)          (setq mac-option-modifier 'meta))
   (when (boundp 'mac-right-option-modifier)    (setq mac-right-option-modifier 'none))
-)
+  )
 
 ;; When at the beginning of the line, make Ctrl-K remove the whole line, instead of just emptying it.
 (setq kill-whole-line t)
@@ -150,6 +154,21 @@
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type t)
+
+;; smoother scrolling
+(setq scroll-step 1
+      scroll-margin 1)
+
+;;modeline
+(after! doom-modeline
+  (setq doom-modeline-major-mode-icon t))
+
+;; Cat and rainbow to show where are you in the file.
+;; (use-package! nyan-mode
+;;   :after doom-modeline
+;;   :config
+;;   (nyan-mode))
+
 ;; create a menu for toggling truncate lines
 (map! :leader
       :desc "Toggle truncate lines"
@@ -168,6 +187,47 @@
       :desc "Toggle Comment or un Comment Region"
       "i c" #'comment-or-uncomment-region )
 
+;; tabs, indentation, lines, file-mgmt, and whitespace
+
+(setq-default indent-tabs-mode nil)
+(setq-default tab-width 4)
+(setq indent-line-function 'insert-tab)
+(setq c-basic-offset 4)
+
+;; whitespace and 80 chars
+(setq whitespace-line-column 80
+      whitespace-style
+      '(face lines-tail trailing))
+(setq-default fill-column 120)
+;; turn on whitespace mode
+(global-whitespace-mode +1)
+;; but not in org
+(setq whitespace-global-modes '(not org-mode))
+;; turn on whitespace cleanup
+(add-hook! 'before-save-hook 'whitespace-cleanup)
+
+(after! highlight-indent-guides
+  (highlight-indent-guides-auto-set-faces))
+
+;; configuration, format, grammar, and tree-sitter settings
+
+;; special newline madness
+(setq require-final-newline t)
+
+;; treesit-auto
+(use-package! treesit-auto
+  :hook (doom-first-file . global-treesit-auto-mode)
+  :init
+  (setq!
+   treesit-auto-install t
+   treesit-auto-langs '(javascript typescript markdown bash)
+   treesit-language-source-alist
+   '((javascript "https://github.com/tree-sitter/tree-sitter-javascript")
+     (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+     (markdown "https://github.com/ikatyang/tree-sitter-markdown")
+     (bash "https://github.com/tree-sitter/tree-sitter-bash")
+     )))
+
 ;; keyboard mapping escape inside the letters for devil mode
 (use-package! key-chord
   :after evil
@@ -176,6 +236,127 @@
   (setq key-chord-two-keys-delay 0.3)  ; adjust if you like
   (key-chord-define evil-insert-state-map "jj" #'evil-normal-state)
   (key-chord-define evil-insert-state-map "jk" #'evil-normal-state))
+
+;; pdf-tools
+
+(setq pdf-view-use-scaling t)
+
+;; pdf-tools-install
+(use-package! pdf-tools
+  :init
+  (pdf-tools-install))
+
+;; Auto-revert PDF buffers when file changes on disk
+(add-hook 'pdf-view-mode-hook #'auto-revert-mode)
+(setq auto-revert-verbose nil)
+
+;; Auto-compile LaTeX/org on save when PDF is open
+(defun my-tex-compile-on-save ()
+  "Auto-compile TeX/LaTeX on save if a PDF buffer exists for this file."
+  (when (and (derived-mode-p 'latex-mode 'LaTeX-mode)
+             (get-buffer (concat (file-name-base (buffer-file-name)) ".pdf")))
+    (TeX-command-run-all nil)))
+
+
+(add-hook 'LaTeX-mode-hook
+          (lambda () (add-hook 'after-save-hook #'my-tex-compile-on-save nil t)))
+
+;; Auto-compile on idle (for Claude edits without save)
+(defvar my-tex-live-preview-timer nil
+  "Timer for live LaTeX preview.")
+(defvar my-tex-live-preview-buffer nil
+  "Buffer being watched for live preview.")
+(defvar my-tex-last-tick nil
+  "Last buffer modification tick.")
+
+(defun my-tex-live-compile ()
+  "Compile if buffer modified since last check."
+  (when (and my-tex-live-preview-buffer
+             (buffer-live-p my-tex-live-preview-buffer)
+             (get-buffer (concat (file-name-base (buffer-file-name my-tex-live-preview-buffer)) ".pdf")))
+    (with-current-buffer my-tex-live-preview-buffer
+      (let ((current-tick (buffer-chars-modified-tick)))
+        (when (not (equal current-tick my-tex-last-tick))
+          (setq my-tex-last-tick current-tick)
+          (save-buffer)
+          (TeX-command-run-all nil))))))
+
+(defun my-tex-live-preview-mode ()
+  "Toggle live PDF preview that recompiles on idle (useful with Claude)."
+  (interactive)
+  (if my-tex-live-preview-timer
+      (progn
+        (cancel-timer my-tex-live-preview-timer)
+        (setq my-tex-live-preview-timer nil
+              my-tex-live-preview-buffer nil
+              my-tex-last-tick nil)
+        (message "Live preview OFF"))
+    (setq my-tex-live-preview-buffer (current-buffer)
+          my-tex-last-tick (buffer-chars-modified-tick)
+          my-tex-live-preview-timer (run-with-idle-timer 2 t #'my-tex-live-compile))
+    (message "Live preview ON (recompiles 2s after changes)")))
+
+;; Live preview keybinding
+(map! :after latex
+      :map LaTeX-mode-map
+      "C-c C-l" #'my-tex-live-preview-mode)
+
+;; markdown tooling
+
+(require 'auth-source)
+(after! grip
+  (let ((credential (auth-source-user-and-password "api.github.com")))
+    (setq grip-github-user (car credential)
+          grip-github-password (cadr credential))))
+
+(use-package! markdown-mode
+  :mode ("\\.md\\'" . gfm-mode)
+  :commands (markdown-mode gfm-mode)
+  :config
+  (setq markdown-command "pandoc -t html5")
+  (set-face-attribute 'markdown-code-face nil :background "#1D252C"))
+
+;; Make region (selection) more visible, especially over code faces.
+(custom-set-faces!
+  '(region :background "#3A4A5A"))
+
+(use-package! simple-httpd
+  :defer t
+  :config
+  (setq httpd-port 7070)
+  (setq httpd-host (system-name)))
+
+(use-package! impatient-mode
+  :commands impatient-mode)
+
+(defun my-markdown-filter (buffer)
+  (princ
+   (with-temp-buffer
+     (let ((tmp (buffer-name)))
+       (set-buffer buffer)
+       (set-buffer (markdown tmp))
+       (format "<!DOCTYPE html><html><title>Markdown preview</title><link rel=\"stylesheet\" href = \"https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/3.0.1/github-markdown.min.css\"/>
+<body><article class=\"markdown-body\" style=\"box-sizing: border-box;min-width: 200px;max-width: 980px;margin: 0 auto;padding: 45px;\">%s</article></body></html>" (buffer-string))))
+   (current-buffer)))
+
+(defun gh-markdown-preview ()
+  "Preview markdown."
+  (interactive)
+  (unless (process-status "httpd")
+    (httpd-start))
+  (impatient-mode)
+  (imp-set-user-filter 'my-markdown-filter)
+  (imp-visit-buffer))
+
+;; server start
+(use-package! server
+  :config
+  (unless (server-running-p) (server-start)))
+
+
+;; working with snippets
+(after! yasnippet
+  (push (expand-file-name "snippets/" doom-user-dir) yas-snippet-dirs))
 
 ;; (after! evil
 ;;   (define-key evil-normal-state-map (kbd "B") #'evil-beginning-of-line)
@@ -211,8 +392,8 @@
 
 ;; Then, we set up a font-lock substitution for list markers (I always use “-” for lists, but you can change this if you want) by replacing them with a centered-dot character:
 (font-lock-add-keywords 'org-mode
-                          '(("^ *\\([-]\\) "
-                             (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+                        '(("^ *\\([-]\\) "
+                           (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
 
 ;; Finally, we set up a nice proportional font, in different sizes, for the headlines. The fonts listed will be tried in sequence, and the first one found will be used. My current favorite is ET Book, feel free to add your own:
 (when (display-graphic-p)
@@ -278,7 +459,6 @@
       (if org-hide-emphasis-markers
           (set-variable 'org-hide-emphasis-markers nill)
         (set-variable 'org-hide-emphasis-markers t)))
-    
 
     ;; Headings hierarchy
     (custom-set-faces!
@@ -367,8 +547,8 @@
 
 ;; Enable logging of done tasks, and log stuff into the LOGBOOK drawer by default
 (after! org
-   (setq org-log-done t)
-   (setq org-log-into-drawer t))
+  (setq org-log-done t)
+  (setq org-log-into-drawer t))
 
 ;; Use the special C-a, C-e and C-k definitions for Org, which enable some special behavior in headings.
 (after! org
@@ -383,10 +563,10 @@
                (looking-back "^\**")))))
 (after! org
   (map! :map org-mode-map
-      :n "g b" (cmd! (org-emphasize ?*))   ;; bold
-      :n "g i" (cmd! (org-emphasize ?/))   ;; italic
-      :n "g u" (cmd! (org-emphasize ?_))   ;; underline
-      ))
+        :n "g b" (cmd! (org-emphasize ?*))   ;; bold
+        :n "g i" (cmd! (org-emphasize ?/))   ;; italic
+        :n "g u" (cmd! (org-emphasize ?_))   ;; underline
+        ))
 ;; Disable electric-mode, which is now respected by Org and which creates some confusing indentation sometimes.
 (add-hook! org-mode (electric-indent-local-mode -1))
 
@@ -395,7 +575,6 @@
   (use-package! ob-mermaid
     :config
     (setq ob-mermaid-cli-path "mmdc")))
-
 
 
 ;; I really dislike completion of words as I type prose (in code it’s OK), so I disable it in Org:
@@ -436,16 +615,16 @@
                 "/Users/aua/Library/CloudStorage/Dropbox/org/eda"
                 "/Users/aua/Library/CloudStorage/Dropbox/org/agm"))))
 ;; Targets include this file and any file contributing to the agenda - up to 9 levels deep
-  (setq org-refile-targets (quote ((nil :maxlevel . 9)
-                                   (org-agenda-files :maxlevel . 9))))
- ;; Use full outline paths for refile targets - we file directly with IDO
-  (setq org-refile-use-outline-path t)
+(setq org-refile-targets (quote ((nil :maxlevel . 9)
+                                 (org-agenda-files :maxlevel . 9))))
+;; Use full outline paths for refile targets - we file directly with IDO
+(setq org-refile-use-outline-path t)
 
-  ;; Targets complete directly with IDO
-  (setq org-outline-path-complete-in-steps nil)
+;; Targets complete directly with IDO
+(setq org-outline-path-complete-in-steps nil)
 
-  ;; Allow refile to create parent tasks with confirmation
-  (setq org-refile-allow-creating-parent-nodes (quote confirm))
+;; Allow refile to create parent tasks with confirmation
+(setq org-refile-allow-creating-parent-nodes (quote confirm))
 
 ;; I define some global keybindings to open my frequently-used org files (original tip from Learn how to take notes more efficiently in Org Mode).
 ;; First, I define a helper function to define keybindings that open files. Note that this requires lexical binding to be enabled, so that the lambda creates a closure, otherwise the keybindings don’t work.
@@ -570,7 +749,7 @@ title."
           ;; Indent todo items by level to show nesting
           (todo . " %i %-12:c%l")
           (tags . " %i %-12:c")
-         (search . " %i %-12:c")))
+          (search . " %i %-12:c")))
   (setq org-agenda-include-diary t))
 
 ;; ;;Install and load some custom local holiday lists I’m interested in.
@@ -667,9 +846,9 @@ title."
 
 ;; I set up an advice before org-capture to make sure org-gtd and org-capture are loaded, which triggers the setup of the templates above.
 (defadvice! +zz/load-org-gtd-before-capture (&optional goto keys)
-    :before #'org-capture
-    (require 'org-capture)
-    (require 'org-gtd))
+  :before #'org-capture
+  (require 'org-capture)
+  (require 'org-gtd))
 
 ;; Publishing to LeanPub
 ;; I use LeanPub for self-publishing my books. Fortunately, it is possible to export from org-mode to both LeanPub-flavored Markdown and Markua, so I can use Org for writing the text and simply export it in the correct format and structure needed by Leanpub.
@@ -801,13 +980,13 @@ title."
   (map! :map org-mode-map
         :localleader
         (:prefix ("e" . "export / preview")
-         "d" #'org-export-dispatch
-         "h" #'andres/org-export-html-preview
-         "p" #'andres/org-export-pdf-preview
-         "m" #'andres/org-export-md-preview
-         "x" (cmd! (org-pandoc-export-to-docx))
-         "o" (cmd! (org-pandoc-export-to-odt))
-         "e" (cmd! (org-pandoc-export-to-epub)))))
+                 "d" #'org-export-dispatch
+                 "h" #'andres/org-export-html-preview
+                 "p" #'andres/org-export-pdf-preview
+                 "m" #'andres/org-export-md-preview
+                 "x" (cmd! (org-pandoc-export-to-docx))
+                 "o" (cmd! (org-pandoc-export-to-odt))
+                 "e" (cmd! (org-pandoc-export-to-epub)))))
 
 
 ;; Reveal.js presentations
@@ -865,7 +1044,7 @@ headlines tagged with :noexport:"
          (title (cadar (org-collect-keywords '("TITLE"))))
          ;; Command to reload the browser and move to the correct slide
          (cmd (concat
-"osascript -e \"tell application \\\"Brave\\\" to repeat with W in windows
+               "osascript -e \"tell application \\\"Brave\\\" to repeat with W in windows
 set i to 0
 repeat with T in (tabs in W)
 set i to i + 1
@@ -897,8 +1076,8 @@ end repeat\"")))
 
 ;; Other Org stuff
 ;; Testing org-ol-tree.
- ;; (use-package! org-ol-tree
- ;;   :after org)
+;; (use-package! org-ol-tree
+;;   :after org)
 
 ;; Programming Org
 ;; Trying out org-ml for easier access to Org objects.
@@ -939,12 +1118,12 @@ end repeat\"")))
 (setq ob-mermaid-cli-path "/Users/aua/.nvm/versions/node/v22.17.0/bin/mmdc")
 
 ;; Configure org babel languages
-    (org-babel-do-load-languages
-     'org-babel-load-languages
-     '((emacs-lisp . t)
-       (mermaid . t)
-       (python . t)
-       (markdown . t)))
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((emacs-lisp . t)
+   (mermaid . t)
+   (python . t)
+   (markdown . t)))
 
 ;; Some useful settings for LISP coding - smartparens-strict-mode to enforce parenthesis to match. I map M-( to enclose the next expression as in paredit using a custom function. Prefix argument can be used to indicate how many expressions to enclose instead of just 1. E.g. C-u 3 M-( will enclose the next 3 sexps.
 (defun zz/sp-enclose-next-sexp (num)
@@ -1044,9 +1223,99 @@ end repeat\"")))
      ,@body
      (float-time (time-since time))))
 
-;; I’m still not fully convinced of running a terminal inside Emacs, but vterm is much nicer than any of the previous terminal emulators, so I’m giving it a try. I configure it so that it runs my favorite shell. Vterm runs Elvish flawlessly!
-(setq vterm-shell "/usr/local/bin/elvish")
-;; Add “unfill” commands to parallel the “fill” ones, bind A-q to unfill-paragraph and rebind M-q to the unfill-toggle command, which fills/unfills paragraphs alternatively.
+;; I’m still not fully convinced of running a terminal inside Emacs, but vterm is much nicer than any of the previous terminal emulators, so I’m giving it a try. I configure it so that it runs my favorite shell. Vterm runs ZSH flawlessly!
+(setq vterm-shell (or (executable-find "zsh") (executable-find "bash") "/bin/sh"))
+
+;; Vterm adjustments
+(setq vterm-environment '("TERM=xterm-256color"))
+(set-language-environment "UTF-8")
+(set-default-coding-systems 'utf-8)
+
+;; Set vterm face to use the primary Nerd Font if in a GUI
+(when (display-graphic-p)
+  (custom-set-faces!
+    '(vterm :family "JetBrainsMono Nerd Font Mono")))
+
+;; open vterm in dired location
+(after! vterm
+  (setq vterm-buffer-name-string "vterm %s")
+
+  ;; Ensure C-a and other leaders are sent to the terminal (fixes tmux leader issues)
+  ;; We map C-a and other common tmux prefix combinations to pass through.
+  (map! :map vterm-mode-map
+        "C-a" #'vterm--self-insert
+        "C-e" #'vterm--self-insert
+        "C-n" #'vterm--self-insert
+        "C-p" #'vterm--self-insert
+        "C-d" #'vterm--self-insert
+        "C-w" #'vterm--self-insert
+        "C-l" #'vterm--self-insert
+        "C-x" #'vterm--self-insert)
+
+
+  ;; Modify the default vterm opening behavior
+  (defadvice! +vterm-use-current-directory-a (fn &rest args)
+    "Make vterm open in the directory of the current buffer."
+    :around #'vterm
+    (let ((default-directory (or (and (buffer-file-name)
+                                      (file-name-directory (buffer-file-name)))
+                                 (and (eq major-mode 'dired-mode)
+                                      (dired-current-directory))
+                                 default-directory)))
+      (apply fn args)))
+
+  ;; Also modify Doom's specific vterm functions
+  (defadvice! +vterm-use-current-directory-b (fn &rest args)
+    "Make Doom's vterm commands open in the directory of the current buffer."
+    :around #'+vterm/here
+    (let ((default-directory (or (and (buffer-file-name)
+                                      (file-name-directory (buffer-file-name)))
+                                 (and (eq major-mode 'dired-mode)
+                                      (dired-current-directory))
+                                 default-directory)))
+      (apply fn args))))
+
+(defun open-vterm-in-current-context ()
+  "Open vterm in the context of the current buffer/window."
+  (interactive)
+  (when-let ((buf (current-buffer)))
+    (with-current-buffer buf
+      (call-interactively #'+vterm/here))))
+
+(defun my-open-vterm-at-point ()
+  "Open vterm in the directory of the currently selected window's buffer.
+This function is designed to be called via `emacsclient -e`."
+  (interactive)
+  (let* ((selected-window (selected-window))
+         ;; Ensure selected-window is not nil before trying to get its buffer
+         (buffer-in-window (and selected-window (window-buffer selected-window)))
+         dir)
+
+    (when buffer-in-window
+      (setq dir
+            ;; Temporarily switch to the target buffer to evaluate its context
+            (with-current-buffer buffer-in-window
+              (cond ((buffer-file-name buffer-in-window)
+                     (file-name-directory (buffer-file-name buffer-in-window)))
+                    ((and (eq major-mode 'dired-mode)
+                          (dired-current-directory))
+                     (dired-current-directory))
+                    (t default-directory)))))
+
+    ;; Fallback to the server's default-directory if no specific directory was found
+    (unless dir (setq dir default-directory))
+
+    (message "Opening vterm in directory: %s" dir) ; For debugging, check *Messages* buffer
+
+    ;; Now, crucially, set 'default-directory' for the vterm call itself
+    (let ((default-directory dir))
+      ;; Call the plain 'vterm' function, which should respect 'default-directory'.
+      (vterm))))
+
+;; multi-vterm
+(use-package! multi-vterm
+  :after vterm)
+
 (use-package! unfill
   :defer t
   :bind
@@ -1071,8 +1340,8 @@ end repeat\"")))
 
 ;; Insert timestamp on the note heading automatically https://xiangji.me/2015/07/13/a-few-of-my-org-mode-customizations/
 (defun insert-inactive-timestamp ()
-(interactive)
-(org-insert-time-stamp nil t t nil nil nil))
+  (interactive)
+  (org-insert-time-stamp nil t t nil nil nil))
 (add-hook 'org-insert-heading-hook 'insert-inactive-timestamp)
 
 

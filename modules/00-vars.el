@@ -33,8 +33,21 @@
 )
 
 ;; --- macOS ENV IMPORT ------------------------------------------------------
-(when (and (eq system-type 'darwin) (display-graphic-p))
-  ;; Note: requires (exec-path-from-shell) in init.el/packages.el
-  (after! exec-path-from-shell
-    (setq exec-path-from-shell-variables '("PATH" "MANPATH" "LANG" "LC_ALL" "GOPATH" "PYENV_ROOT" "GPG_TTY"))
-    (exec-path-from-shell-initialize)))
+(when (eq system-type 'darwin)
+  ;; Fix for "ld: library 'emutls_w' not found" during native compilation
+  (let* ((gcc-base "/opt/homebrew/lib/gcc/current")
+         (gcc-lib-dir (and (file-directory-p (concat gcc-base "/gcc"))
+                           (car (directory-files (concat gcc-base "/gcc") t "darwin"))))
+         (gcc-ver-dir (and gcc-lib-dir
+                           (car (directory-files gcc-lib-dir t "^[0-9]+$")))))
+    (when gcc-ver-dir
+      (setenv "LIBRARY_PATH"
+              (concat (getenv "LIBRARY_PATH")
+                      (when (getenv "LIBRARY_PATH") ":")
+                      gcc-ver-dir))))
+
+  (when (display-graphic-p)
+    ;; Note: requires (exec-path-from-shell) in init.el/packages.el
+    (after! exec-path-from-shell
+      (setq exec-path-from-shell-variables '("PATH" "MANPATH" "LANG" "LC_ALL" "GOPATH" "PYENV_ROOT" "GPG_TTY"))
+      (exec-path-from-shell-initialize))))
