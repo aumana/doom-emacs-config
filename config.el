@@ -397,7 +397,6 @@
     (setq ob-mermaid-cli-path "mmdc")))
 
 
-
 ;; I really dislike completion of words as I type prose (in code it’s OK), so I disable it in Org:
 
 (defun zz/adjust-org-company-backends ()
@@ -936,7 +935,7 @@ end repeat\"")))
   (setq org-auto-tangle-default t))
 
 ;; configure ob-mermaid
-(setq ob-mermaid-cli-path "/Users/aua/.nvm/versions/node/v22.17.0/bin/mmdc")
+(setq ob-mermaid-cli-path "mmdc")
 
 ;; Configure org babel languages
     (org-babel-do-load-languages
@@ -1138,9 +1137,15 @@ end repeat\"")))
 
 ;; configuration markdown mode
 (after! markdown-mode
+  ;; insert ```mermaid, not ``` mermaid, when wrapping a region (SPC m i C)
+  (setq markdown-spaces-after-code-fence 0)
   (map! :map markdown-mode-map
         :localleader
         :desc "Preview Mermaid" "m" #'markdown-mermaid-preview))
+
+;; mermaid-mode for .mmd files (C-c C-c compiles via mmdc)
+(use-package! mermaid-mode
+  :mode "\\.mmd\\'")
 
 
 ;; begin of configuration of GPTEL
