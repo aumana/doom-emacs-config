@@ -1141,7 +1141,34 @@ end repeat\"")))
   (setq markdown-spaces-after-code-fence 0)
   (map! :map markdown-mode-map
         :localleader
-        :desc "Preview Mermaid" "m" #'markdown-mermaid-preview))
+        :desc "Preview Mermaid" "m" #'markdown-mermaid-preview
+        :desc "Preview file (HTML)" "P" #'zz/markdown-preview-html))
+
+;; Whole-buffer preview: mmdc turns ```mermaid blocks into SVGs, pandoc builds one
+;; self-contained HTML page, then it opens in the browser.
+(defun zz/markdown-preview-html ()
+  "Render the current Markdown buffer, Mermaid diagrams included, to HTML and open it."
+  (interactive)
+  (let* ((dir (make-temp-file "md-preview-" t))
+         (src (expand-file-name "src.md" dir))
+         (out (expand-file-name "out.md" dir))
+         (html (expand-file-name "preview.html" dir))
+         (q #'shell-quote-argument))
+    (write-region nil nil src nil 'silent) ; buffer contents, so unsaved edits show too
+    (message "Rendering Markdown preview...")
+    (make-process
+     :name "md-preview" :buffer (get-buffer-create "*md-preview*")
+     :command (list shell-file-name shell-command-switch
+                    (format "mmdc -q -i %s -o %s -e svg && pandoc %s -s --embed-resources --resource-path=%s --metadata pagetitle=%s -o %s"
+                            (funcall q src) (funcall q out) (funcall q out)
+                            (funcall q (concat dir path-separator default-directory))
+                            (funcall q (buffer-name)) (funcall q html)))
+     :sentinel (lambda (proc _event)
+                 (when (memq (process-status proc) '(exit signal))
+                   (if (and (zerop (process-exit-status proc)) (file-exists-p html))
+                       (browse-url-of-file html)
+                     (pop-to-buffer "*md-preview*")
+                     (message "Markdown preview failed, see *md-preview*")))))))
 
 ;; mermaid-mode for .mmd files (C-c C-c compiles via mmdc)
 (use-package! mermaid-mode
